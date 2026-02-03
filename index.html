@@ -213,113 +213,140 @@
     <div class="footer">Nein? Versuch es doch!</div>
   </main>
 
-  <script>
-    const card = document.getElementById('card');
-    const buttons = document.getElementById('buttons');
-    const yesBtn = document.getElementById('yesBtn');
-    const noBtn  = document.getElementById('noBtn');
+ <script>
+  const card = document.getElementById('card');
+  const buttons = document.getElementById('buttons');
+  const yesBtn = document.getElementById('yesBtn');
+  const noBtn  = document.getElementById('noBtn');
 
-    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-    const rand  = (min, max) => Math.random() * (max - min) + min;
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+  const rand  = (min, max) => Math.random() * (max - min) + min;
 
-    // aktueller Offset des NEIN-Buttons (in px, relativ zum Buttons-Container)
-    let noX = 0, noY = 0;
+  // aktueller Offset des NEIN-Buttons (in px, relativ zum Buttons-Container)
+  let noX = 0, noY = 0;
 
-    function setNoPosition(x, y){
-      noX = x;
-      noY = y;
-      noBtn.style.setProperty('--tx', `${noX}px`);
-      noBtn.style.setProperty('--ty', `${noY}px`);
+  function setNoPosition(x, y){
+    noX = x;
+    noY = y;
+    noBtn.style.setProperty('--tx', `${noX}px`);
+    noBtn.style.setProperty('--ty', `${noY}px`);
+  }
+
+  function glitch(){
+    noBtn.classList.remove('glitch');
+    void noBtn.offsetWidth; // restart animation
+    noBtn.classList.add('glitch');
+  }
+
+  function getMode(){
+    const rect = buttons.getBoundingClientRect();
+    const isMobile = rect.width < 420; // pragmatisch
+    return { rect, isMobile };
+  }
+
+  // Grenzen + Basis für Sprungweite
+  function bounds(){
+    const { rect, isMobile } = getMode();
+
+    // Mobile: deutlich enger, damit er nicht "wegschießt"
+    const xFactor = isMobile ? 0.28 : 0.46;
+    const yMaxF   = isMobile ? 0.42 : 0.48;
+    const yMinF   = isMobile ? 0.10 : 0.18;
+
+    const maxX =  rect.width  * xFactor;
+    const minX = -rect.width  * xFactor;
+
+    const maxY =  rect.height * yMaxF;
+    const minY = -rect.height * yMinF;
+
+    const base = Math.min(rect.width, rect.height);
+
+    return { minX, maxX, minY, maxY, base, isMobile, rect };
+  }
+
+  function fleeFrom(clientX, clientY){
+    const b = bounds();
+    const rect = b.rect;
+    const btnRect = noBtn.getBoundingClientRect();
+
+    // Pointer relativ zum Container
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+
+    // Button-Mittelpunkt relativ zum Container
+    const cx = (btnRect.left + btnRect.width/2) - rect.left;
+    const cy = (btnRect.top  + btnRect.height/2) - rect.top;
+
+    let dx = cx - px;
+    let dy = cy - py;
+
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1){
+      dx = rand(-1, 1);
+      dy = rand(-1, 1);
     }
 
-    function glitch(){
-      noBtn.classList.remove('glitch');
-      void noBtn.offsetWidth; // restart animation
-      noBtn.classList.add('glitch');
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len;
+    dy /= len;
+
+    // Mobile: etwas mehr vertikal, weniger extrem horizontal
+    if (b.isMobile){
+      dx *= 0.75;
+      dy *= 1.10;
+      const l2 = Math.hypot(dx, dy) || 1;
+      dx /= l2;
+      dy /= l2;
     }
 
-    // sorgt dafür, dass der Button innerhalb des .buttons Bereichs bleibt,
-    // aber mit genug Freiheit "auszuweichen"
-    function bounds(){
-      const rect = buttons.getBoundingClientRect();
-      // etwas großzügiger als vorher, damit er nicht "klebt"
-      const maxX = rect.width  * 0.46;
-      const minX = -rect.width * 0.46;
-      const maxY = rect.height * 0.48;
-      const minY = -rect.height * 0.18;
-      return { minX, maxX, minY, maxY, base: Math.min(rect.width, rect.height) };
-    }
+    // Sprungweite: Mobile kleiner, Desktop wie gehabt
+    const jumpBase = b.base * (b.isMobile ? 0.20 : 0.30);
+    const jump = clamp(
+      jumpBase + rand(-10, 10),
+      b.isMobile ? 55 : 70,
+      b.isMobile ? 110 : 150
+    );
 
-    function fleeFrom(clientX, clientY){
-      const rect = buttons.getBoundingClientRect();
-      const btnRect = noBtn.getBoundingClientRect();
+    let targetX = noX + dx * jump + rand(-6, 6);
+    let targetY = noY + dy * jump + rand(-6, 6);
 
-      // Pointer relativ zum Container
-      const px = clientX - rect.left;
-      const py = clientY - rect.top;
+    targetX = clamp(targetX, b.minX, b.maxX);
+    targetY = clamp(targetY, b.minY, b.maxY);
 
-      // Button-Mittelpunkt relativ zum Container
-      const cx = (btnRect.left + btnRect.width/2) - rect.left;
-      const cy = (btnRect.top  + btnRect.height/2) - rect.top;
+    setNoPosition(targetX, targetY);
+    glitch();
+  }
 
-      let dx = cx - px;
-      let dy = cy - py;
+  // Desktop: bei Annäherung
+  function onApproach(e){
+    fleeFrom(e.clientX, e.clientY);
+  }
 
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1){
-        dx = rand(-1, 1);
-        dy = rand(-1, 1);
-      }
+  // Mobile + Desktop: bei Pointerdown (sauber, ohne touchstart Doppeltrigger)
+  function onTry(e){
+    e.preventDefault();
+    fleeFrom(e.clientX, e.clientY);
+    return false;
+  }
 
-      const len = Math.hypot(dx, dy) || 1;
-      dx /= len;
-      dy /= len;
+  // niemals klickbar
+  noBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    glitch();
+    return false;
+  });
 
-      const b = bounds();
+  noBtn.addEventListener('pointerenter', onApproach);
+  noBtn.addEventListener('pointermove',  onApproach);
+  noBtn.addEventListener('pointerdown',  onTry);
 
-      // etwas weniger abrupt: moderate Sprünge + weiche Varianz
-      const jump = clamp(b.base * 0.30 + rand(-12, 12), 70, 150);
+  // JA -> Erfolg
+  yesBtn.addEventListener('click', () => {
+    card.classList.add('show-success');
+  });
 
-      let targetX = noX + dx * jump + rand(-8, 8);
-      let targetY = noY + dy * jump + rand(-8, 8);
+  // Start: leichte Random-Position
+  setNoPosition(rand(-8, 8), rand(-6, 8));
+</script>
 
-      // innerhalb halten
-      targetX = clamp(targetX, b.minX, b.maxX);
-      targetY = clamp(targetY, b.minY, b.maxY);
-
-      setNoPosition(targetX, targetY);
-      glitch();
-    }
-
-    // Desktop: bei Annäherung
-    function onApproach(e){
-      fleeFrom(e.clientX, e.clientY);
-    }
-
-    // Mobile + Desktop: bei Pointerdown (sauber, ohne touchstart Doppeltrigger)
-    function onTry(e){
-      e.preventDefault();
-      fleeFrom(e.clientX, e.clientY);
-      return false;
-    }
-
-    // niemals klickbar
-    noBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      glitch();
-      return false;
-    });
-
-    noBtn.addEventListener('pointerenter', onApproach);
-    noBtn.addEventListener('pointermove',  onApproach);
-    noBtn.addEventListener('pointerdown',  onTry);
-
-    // JA -> Erfolg
-    yesBtn.addEventListener('click', () => {
-      card.classList.add('show-success');
-    });
-
-    // Start: leichte Random-Position
-    setNoPosition(rand(-10, 10), rand(-6, 10));
-  </script>
 </body>
 </html>
