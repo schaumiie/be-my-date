@@ -34,6 +34,13 @@ body{
   overflow:hidden;
 }
 
+.stars{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  opacity:.35;
+}
+
 .card{
   width:min(720px, 92vw);
   padding: clamp(22px, 4vw, 38px);
@@ -70,7 +77,6 @@ p{
 
 button{
   position:absolute;
-  left:50%;
   top:28px;
   border:none;
   border-radius:999px;
@@ -83,50 +89,50 @@ button{
   box-shadow:0 14px 40px rgba(0,0,0,.28);
 }
 
+/* JA – links */
 #yesBtn{
-  left: 50%;
-  top: 28px;
-  transform: translateX(-110%);
+  left:50%;
+  transform: translateX(-120%);
   background: linear-gradient(135deg, var(--yes1), var(--yes2));
   color:#160813;
 }
 
+/* NEIN – rechts + beweglich */
 #noBtn{
-  left: 50%;
-  top: 28px;
+  left:50%;
 
-  --tx: 0px;
-  --ty: 0px;
+  --tx:0px;
+  --ty:0px;
 
-  /* Start leicht rechts vom Mittelpunkt */
-  transform: translateX(10%) translate3d(var(--tx), var(--ty), 0);
+  transform: translateX(20%) translate3d(var(--tx), var(--ty), 0);
 
   background: linear-gradient(135deg, #7b7bff, #66ffe9);
   color:#071018;
 
-  transition: transform 220ms cubic-bezier(.22,1,.36,1), filter 180ms ease;
+  transition: transform 240ms cubic-bezier(.22,1,.36,1), filter 180ms ease;
   will-change: transform;
 }
-  
+
 .glitch{
-  animation: glitch 180ms ease;
+  animation: glitchFilter 180ms ease;
 }
 
-@keyframes glitch{
-  40%{ filter: hue-rotate(20deg) saturate(1.4); }
+@keyframes glitchFilter{
+  35%{ filter: hue-rotate(18deg) saturate(1.6); }
 }
 
 .success{
   display:none;
   text-align:center;
-  font-size: clamp(40px, 8vw, 90px);
-  font-weight:900;
+  font-size: clamp(34px, 7vw, 84px);
+  font-weight:1000;
+  letter-spacing:3px;
 }
 
 .success span{
   display:block;
-  font-size:18px;
   margin-top:10px;
+  font-size:18px;
 }
 
 .show-success .buttons{ display:none; }
@@ -170,12 +176,12 @@ const noBtn  = document.getElementById('noBtn');
 const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
 const rand  = (a,b)=>Math.random()*(b-a)+a;
 
-let x=0,y=0;
+let noX=0,noY=0;
 
-function setPos(nx,ny){
-  x=nx;y=ny;
-  noBtn.style.setProperty('--tx',x+'px');
-  noBtn.style.setProperty('--ty',y+'px');
+function setNoPosition(x,y){
+  noX=x; noY=y;
+  noBtn.style.setProperty('--tx', x+'px');
+  noBtn.style.setProperty('--ty', y+'px');
 }
 
 function glitch(){
@@ -186,44 +192,36 @@ function glitch(){
 
 function bounds(){
   const r = buttons.getBoundingClientRect();
-  const bw = noBtn.offsetWidth;
-  const bh = noBtn.offsetHeight;
   const mobile = r.width < 420;
 
-  const maxX = (r.width/2)-(bw/2)-10;
-  const maxY = (r.height/2)-(bh/2)-10;
-
   return {
-    minX:-maxX*(mobile?0.75:1),
-    maxX: maxX*(mobile?0.75:1),
-    minY:-maxY*(mobile?0.6:0.45),
-    maxY: maxY,
-    jump: mobile?60:110
+    minX: -r.width*(mobile?0.18:0.35),
+    maxX:  r.width*(mobile?0.18:0.35),
+    minY: -r.height*(mobile?0.15:0.25),
+    maxY:  r.height*(mobile?0.35:0.45),
+    jump:  mobile?60:110
   };
 }
 
-function flee(e){
+function flee(){
   const b=bounds();
-  const dx = rand(-1,1);
-  const dy = rand(-1,1);
+  const dx=rand(-1,1);
+  const dy=rand(-1,1);
 
-  let nx = x + dx*b.jump;
-  let ny = y + dy*b.jump;
-
-  setPos(
-    clamp(nx,b.minX,b.maxX),
-    clamp(ny,b.minY,b.maxY)
+  setNoPosition(
+    clamp(noX+dx*b.jump, b.minX, b.maxX),
+    clamp(noY+dy*b.jump, b.minY, b.maxY)
   );
   glitch();
 }
 
 noBtn.addEventListener('pointerenter',flee);
-noBtn.addEventListener('pointerdown',(e)=>{e.preventDefault();flee(e);});
+noBtn.addEventListener('pointerdown',(e)=>{e.preventDefault();flee();});
 noBtn.addEventListener('click',(e)=>e.preventDefault());
 
 yesBtn.addEventListener('click',()=>card.classList.add('show-success'));
 
-setPos(rand(-6,6),rand(-4,6));
+setNoPosition(rand(-6,6),rand(-4,6));
 </script>
 
 </body>
