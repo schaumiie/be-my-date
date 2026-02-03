@@ -84,16 +84,22 @@ button{
 }
 
 #yesBtn{
-  transform: translateX(-120%);
+  left: 50%;
+  top: 28px;
+  transform: translateX(-110%);
   background: linear-gradient(135deg, var(--yes1), var(--yes2));
   color:#160813;
 }
 
 #noBtn{
-  --tx:0px;
-  --ty:0px;
+  left: 50%;
+  top: 28px;
 
-  transform: translateX(-50%) translate3d(var(--tx), var(--ty), 0);
+  --tx: 0px;
+  --ty: 0px;
+
+  /* Start leicht rechts vom Mittelpunkt */
+  transform: translateX(10%) translate3d(var(--tx), var(--ty), 0);
 
   background: linear-gradient(135deg, #7b7bff, #66ffe9);
   color:#071018;
@@ -101,7 +107,7 @@ button{
   transition: transform 220ms cubic-bezier(.22,1,.36,1), filter 180ms ease;
   will-change: transform;
 }
-
+  
 .glitch{
   animation: glitch 180ms ease;
 }
