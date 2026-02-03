@@ -34,13 +34,6 @@ body{
   overflow:hidden;
 }
 
-.stars{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  opacity:.35;
-}
-
 .card{
   width:min(720px, 92vw);
   padding: clamp(22px, 4vw, 38px);
@@ -97,7 +90,7 @@ button{
   color:#160813;
 }
 
-/* NEIN – rechts + beweglich */
+/* NEIN – rechts + springt */
 #noBtn{
   left:50%;
 
@@ -109,16 +102,16 @@ button{
   background: linear-gradient(135deg, #7b7bff, #66ffe9);
   color:#071018;
 
-  transition: transform 240ms cubic-bezier(.22,1,.36,1), filter 180ms ease;
+  transition: transform 180ms cubic-bezier(.15,1.4,.4,1), filter 120ms ease;
   will-change: transform;
 }
 
 .glitch{
-  animation: glitchFilter 180ms ease;
+  animation: glitch 160ms ease;
 }
 
-@keyframes glitchFilter{
-  35%{ filter: hue-rotate(18deg) saturate(1.6); }
+@keyframes glitch{
+  40%{ filter: hue-rotate(22deg) saturate(1.7); }
 }
 
 .success{
@@ -135,8 +128,16 @@ button{
   font-size:18px;
 }
 
+.footer{
+  margin-top:16px;
+  text-align:center;
+  font-size:12px;
+  color: rgba(255,255,255,.55);
+}
+
 .show-success .buttons{ display:none; }
 .show-success .success{ display:block; }
+.show-success .footer{ display:none; }
 
 @media (max-width:480px){
   button{
@@ -165,6 +166,8 @@ button{
       <span>Ich hol dich 17 Uhr ab!</span>
     </div>
   </section>
+
+  <div class="footer">Nein? Versuch es doch!</div>
 </main>
 
 <script>
@@ -176,12 +179,12 @@ const noBtn  = document.getElementById('noBtn');
 const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
 const rand  = (a,b)=>Math.random()*(b-a)+a;
 
-let noX=0,noY=0;
+let x=0,y=0;
 
-function setNoPosition(x,y){
-  noX=x; noY=y;
-  noBtn.style.setProperty('--tx', x+'px');
-  noBtn.style.setProperty('--ty', y+'px');
+function setPos(nx,ny){
+  x=nx;y=ny;
+  noBtn.style.setProperty('--tx',x+'px');
+  noBtn.style.setProperty('--ty',y+'px');
 }
 
 function glitch(){
@@ -195,33 +198,38 @@ function bounds(){
   const mobile = r.width < 420;
 
   return {
-    minX: -r.width*(mobile?0.18:0.35),
-    maxX:  r.width*(mobile?0.18:0.35),
-    minY: -r.height*(mobile?0.15:0.25),
-    maxY:  r.height*(mobile?0.35:0.45),
-    jump:  mobile?60:110
+    minX: -r.width*(mobile?0.30:0.55),
+    maxX:  r.width*(mobile?0.30:0.55),
+    minY: -r.height*(mobile?0.35:0.45),
+    maxY:  r.height*(mobile?0.55:0.75),
+    jump:  mobile?110:180
   };
 }
 
 function flee(){
   const b=bounds();
-  const dx=rand(-1,1);
-  const dy=rand(-1,1);
 
-  setNoPosition(
-    clamp(noX+dx*b.jump, b.minX, b.maxX),
-    clamp(noY+dy*b.jump, b.minY, b.maxY)
+  const dx = rand(-1.2,1.2);
+  const dy = rand(-1.2,1.2);
+
+  setPos(
+    clamp(x + dx*b.jump, b.minX, b.maxX),
+    clamp(y + dy*b.jump, b.minY, b.maxY)
   );
+
   glitch();
 }
 
 noBtn.addEventListener('pointerenter',flee);
+noBtn.addEventListener('pointermove',flee);
 noBtn.addEventListener('pointerdown',(e)=>{e.preventDefault();flee();});
 noBtn.addEventListener('click',(e)=>e.preventDefault());
 
-yesBtn.addEventListener('click',()=>card.classList.add('show-success'));
+yesBtn.addEventListener('click',()=>{
+  card.classList.add('show-success');
+});
 
-setNoPosition(rand(-6,6),rand(-4,6));
+setPos(rand(-10,10),rand(-10,10));
 </script>
 
 </body>
