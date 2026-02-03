@@ -14,12 +14,12 @@
       --muted: rgba(255,255,255,.78);
       --yes1:#ff4d88;
       --yes2:#ff9a4d;
-      --no:#7b7bff;
       --shadow: 0 18px 60px rgba(0,0,0,.35);
       --radius: 22px;
     }
 
     *{ box-sizing:border-box; }
+
     body{
       margin:0;
       min-height:100svh;
@@ -78,7 +78,7 @@
 
     .stage{
       position:relative;
-      height: 210px;          /* Platz zum Ausweichen */
+      height: 210px;
       display:grid;
       place-items:center;
     }
@@ -100,7 +100,6 @@
       padding: 14px 22px;
       font-size: 18px;
       box-shadow: 0 14px 40px rgba(0,0,0,.28);
-      transition: transform .18s ease, filter .18s ease;
       user-select:none;
       touch-action: manipulation;
       position:absolute;
@@ -113,28 +112,37 @@
       transform: translateX(-120%);
       background: linear-gradient(135deg, var(--yes1), var(--yes2));
       color:#160813;
+      transition: transform .18s ease, filter .18s ease;
     }
     #yesBtn:hover{ transform: translateX(-120%) scale(1.04); filter: brightness(1.05); }
     #yesBtn:active{ transform: translateX(-120%) scale(.98); }
 
+    /* NEIN: smooth movement via CSS vars */
     #noBtn{
       left: 50%;
       top: 28px;
-      transform: translateX(20%);
+
+      --tx: 0px;
+      --ty: 0px;
+
+      transform: translateX(20%) translate3d(var(--tx), var(--ty), 0);
+
       background: linear-gradient(135deg, rgba(123,123,255,1), rgba(102,255,233,1));
       color:#071018;
+
+      transition: transform 240ms cubic-bezier(.22, 1, .36, 1), filter 180ms ease;
+      will-change: transform, filter;
     }
 
-    /* "Glitch" Effekt */
+    /* Glitch nur optisch (kein transform!) */
     .glitch{
-      animation: glitch 260ms steps(2, end);
+      animation: glitchFilter 180ms ease;
     }
-    @keyframes glitch{
-      0%{ transform: translate(var(--tx,0), var(--ty,0)) rotate(0deg) scale(1); filter:hue-rotate(0deg) saturate(1.1); }
-      25%{ transform: translate(calc(var(--tx,0) + 8px), calc(var(--ty,0) - 6px)) rotate(-1deg) scale(1.02); }
-      50%{ transform: translate(calc(var(--tx,0) - 10px), calc(var(--ty,0) + 7px)) rotate(1deg) scale(.98); filter:hue-rotate(35deg) saturate(1.6); }
-      75%{ transform: translate(calc(var(--tx,0) + 6px), calc(var(--ty,0) + 2px)) rotate(-.5deg) scale(1.03); }
-      100%{ transform: translate(var(--tx,0), var(--ty,0)) rotate(0deg) scale(1); filter:hue-rotate(0deg) saturate(1.1); }
+    @keyframes glitchFilter{
+      0%   { filter: none; }
+      35%  { filter: hue-rotate(18deg) saturate(1.6) contrast(1.1); }
+      70%  { filter: hue-rotate(-14deg) saturate(1.4) contrast(1.05); }
+      100% { filter: none; }
     }
 
     .success{
@@ -145,12 +153,23 @@
       letter-spacing: 3px;
       text-transform: uppercase;
       text-shadow: 0 10px 40px rgba(255,77,136,.35);
+      line-height: 1.1;
+    }
+
+    .success span{
+      display:block;
+      margin-top: 10px;
+      font-size: 18px;
+      letter-spacing: 0.4px;
+      text-transform: none;
+      font-weight: 700;
+      color: rgba(255,255,255,.90);
+      text-shadow: none;
     }
 
     .show-success .buttons{ display:none; }
     .show-success .success{ display:block; }
 
-    /* kleine Info unten */
     .footer{
       margin-top: 16px;
       text-align:center;
@@ -173,7 +192,10 @@
         <button id="noBtn" type="button" aria-label="Nein (nicht klickbar)">Nein</button>
       </div>
 
-      <div class="success" id="successText">JIPPI<br><span style="font-size: 18px !important">Ich hol dich 17 Uhr ab!</span></div>
+      <div class="success" id="successText">
+        JIPPI
+        <span>Ich hol dich 17 Uhr ab!</span>
+      </div>
     </section>
 
     <div class="footer">Tipp: Versuch mal, „Nein“ zu erwischen…</div>
@@ -185,112 +207,106 @@
     const yesBtn = document.getElementById('yesBtn');
     const noBtn  = document.getElementById('noBtn');
 
-    // Hilfsfunktionen
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
     const rand  = (min, max) => Math.random() * (max - min) + min;
 
-    // Positioniere "Nein" initial hübsch
+    // aktueller Offset des NEIN-Buttons (in px, relativ zum Buttons-Container)
     let noX = 0, noY = 0;
 
-    function setNoPosition(px, py){
-      noX = px; noY = py;
+    function setNoPosition(x, y){
+      noX = x;
+      noY = y;
       noBtn.style.setProperty('--tx', `${noX}px`);
       noBtn.style.setProperty('--ty', `${noY}px`);
-      noBtn.style.transform = `translateX(20%) translate(${noX}px, ${noY}px)`;
     }
 
     function glitch(){
       noBtn.classList.remove('glitch');
-      // reflow -> damit Animation immer neu startet
-      void noBtn.offsetWidth;
+      void noBtn.offsetWidth; // restart animation
       noBtn.classList.add('glitch');
-      // kleiner "Shake" Sound wäre nett, aber lassen wir es ohne Media.
     }
 
-    function fleeFrom(pointX, pointY){
+    // sorgt dafür, dass der Button innerhalb des .buttons Bereichs bleibt,
+    // aber mit genug Freiheit "auszuweichen"
+    function bounds(){
+      const rect = buttons.getBoundingClientRect();
+      // etwas großzügiger als vorher, damit er nicht "klebt"
+      const maxX = rect.width  * 0.46;
+      const minX = -rect.width * 0.46;
+      const maxY = rect.height * 0.48;
+      const minY = -rect.height * 0.18;
+      return { minX, maxX, minY, maxY, base: Math.min(rect.width, rect.height) };
+    }
+
+    function fleeFrom(clientX, clientY){
       const rect = buttons.getBoundingClientRect();
       const btnRect = noBtn.getBoundingClientRect();
 
-      // Mittelpunkt des Buttons relativ zum Container
-      const btnCenterX = (btnRect.left + btnRect.width/2) - rect.left;
-      const btnCenterY = (btnRect.top  + btnRect.height/2) - rect.top;
+      // Pointer relativ zum Container
+      const px = clientX - rect.left;
+      const py = clientY - rect.top;
 
-      // Punkt (Maus/Touch) relativ zum Container
-      const px = pointX - rect.left;
-      const py = pointY - rect.top;
+      // Button-Mittelpunkt relativ zum Container
+      const cx = (btnRect.left + btnRect.width/2) - rect.left;
+      const cy = (btnRect.top  + btnRect.height/2) - rect.top;
 
-      // Richtung weg vom Pointer
-      let dx = btnCenterX - px;
-      let dy = btnCenterY - py;
+      let dx = cx - px;
+      let dy = cy - py;
 
-      // Falls Pointer "genau drauf": random Richtung
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1){
         dx = rand(-1, 1);
         dy = rand(-1, 1);
       }
 
-      // Normalisieren
       const len = Math.hypot(dx, dy) || 1;
-      dx /= len; dy /= len;
+      dx /= len;
+      dy /= len;
 
-      // Sprungweite (mehr auf Desktop, etwas weniger auf Mobile)
-      const base = Math.min(rect.width, rect.height);
-      const jump = clamp(base * 0.35 + rand(-20, 20), 80, 170);
+      const b = bounds();
 
-      // Neue Zielposition
-      let targetX = noX + dx * jump + rand(-10, 10);
-      let targetY = noY + dy * jump + rand(-10, 10);
+      // etwas weniger abrupt: moderate Sprünge + weiche Varianz
+      const jump = clamp(b.base * 0.30 + rand(-12, 12), 70, 150);
 
-      // Begrenzen, damit er im Container bleibt
-      // (wir rechnen in "Translate-Pixeln", also nur grob – wirkt trotzdem gut)
-      const maxX = rect.width  * 0.35;
-      const minX = -rect.width * 0.35;
-      const maxY = rect.height * 0.35;
-      const minY = -rect.height * 0.10;
+      let targetX = noX + dx * jump + rand(-8, 8);
+      let targetY = noY + dy * jump + rand(-8, 8);
 
-      targetX = clamp(targetX, minX, maxX);
-      targetY = clamp(targetY, minY, maxY);
+      // innerhalb halten
+      targetX = clamp(targetX, b.minX, b.maxX);
+      targetY = clamp(targetY, b.minY, b.maxY);
 
       setNoPosition(targetX, targetY);
       glitch();
     }
 
-    // Desktop: wenn Maus in die Nähe kommt -> weg
-    // Pointer Events funktionieren auch für Touch, wir behandeln beides.
+    // Desktop: bei Annäherung
     function onApproach(e){
-      // Für Touch: bei pointermove meist nicht vorhanden, daher extra handler unten
       fleeFrom(e.clientX, e.clientY);
     }
 
-    // Mobil: bei touchstart/pointerdown soll er sofort abhauen
-    function onTryClick(e){
+    // Mobile + Desktop: bei Pointerdown (sauber, ohne touchstart Doppeltrigger)
+    function onTry(e){
       e.preventDefault();
-      const touch = e.touches && e.touches[0];
-      const clientX = touch ? touch.clientX : e.clientX;
-      const clientY = touch ? touch.clientY : e.clientY;
-      fleeFrom(clientX, clientY);
+      fleeFrom(e.clientX, e.clientY);
       return false;
     }
 
-    // "Nein" soll nie wirklich klickbar sein
+    // niemals klickbar
     noBtn.addEventListener('click', (e) => {
       e.preventDefault();
       glitch();
       return false;
     });
 
-    // Wenn man sich nähert (Desktop) oder drauf tippt (Mobile)
     noBtn.addEventListener('pointerenter', onApproach);
     noBtn.addEventListener('pointermove',  onApproach);
-    noBtn.addEventListener('pointerdown',  onTryClick);
-    noBtn.addEventListener('touchstart',   onTryClick, { passive: false });
+    noBtn.addEventListener('pointerdown',  onTry);
 
-    // "Ja" -> Erfolg
+    // JA -> Erfolg
     yesBtn.addEventListener('click', () => {
       card.classList.add('show-success');
     });
 
-    // Start-Position leicht random
+    // Start: leichte Random-Position
     setNoPosition(rand(-10, 10), rand(-6, 10));
   </script>
 </body>
